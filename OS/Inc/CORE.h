@@ -17,14 +17,14 @@ extern "C" {
 #define CORE_SET_STACKPTR_LIMIT(SpLim)\
 do\
 {\
-    Core->SPLIM = SpLim;\
+    Core->SPLIM = (uint16)SpLim;\
 }\
 while(0);
     
 #define CORE_SET_STACKPTR(Sp)\
 do\
 {\
-    Core->W15 = Sp;\
+    Core->W15 = (uint16)Sp;\
 }\
 while(0);
     
@@ -33,7 +33,7 @@ while(0);
 #define CORE_SET_FRAMEPTR(FrPtr)\
 do\
 {\
-    Core->W14 = FrPtr;\
+    Core->W14 = (uint16)FrPtr;\
 }\
 while(0);
 

@@ -26,6 +26,7 @@ extern "C" {
         SC_Freq_Tim,
     } dtSCFreq;
 
+extern uint16 SC_GetFreq(dtSCFreq Freq);
 
 #ifdef	__cplusplus
 }

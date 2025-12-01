@@ -6,6 +6,12 @@
 #include "../Inc/TIM.h"
 #include "../Inc/SC.h"
 
+typedef union uStackToRunnable
+{
+    void (**func)(void);
+    uint16 *stack;
+} dtStackToRunnable;
+
 uint8 CurrentTaskId;
 uint16 Os_Tick;
 volatile dtOS_ErrorType Os_Error;
@@ -19,38 +25,40 @@ void OS_Error(dtOS_ErrorType Error);
 void OS_Init(void)
 {
     dtTIM_A_Cfg TIM1Cfg = {.CmpValue = 4000, .Instance =1, .Prescaler = 0, .TOn = 1,.IntHandler = 0};
+    dtStackToRunnable wrapper;
     
     for(CurrentTaskId = 0; CurrentTaskId < TASK_NUMBER-1; CurrentTaskId++)
     {
         /* This part of the stack will be restored during returning from the PendSV exception by HW */
-        *TaskList[CurrentTaskId].StackPtr++ = (uint16)((uint32)TaskList[CurrentTaskId].Runnable) & 0xFFFF;//PCL
-        *TaskList[CurrentTaskId].StackPtr++ = (uint16)((uint32)TaskList[CurrentTaskId].Runnable) >> 16;//STATUS + PCH
+        wrapper.stack = (TaskList[CurrentTaskId].StackPtr++); //wrapping runnable address
+        *wrapper.func = TaskList[CurrentTaskId].Runnable; //to the pcl section, in xc16 function pointers are always 16 bit wide
+        *(TaskList[CurrentTaskId].StackPtr++) = 0;//STATUS + PCH
 
         /* This part of the stack will be restured during the PendSV by SW */
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W0
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W1
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W2
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W3
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W4
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W5
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W6
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W7
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W8
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W9
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W10
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W11
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W12
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//W13
-        *TaskList[CurrentTaskId].StackPtr++ = TaskList[CurrentTaskId].StackStartAddr;//W14
-        *TaskList[CurrentTaskId].StackPtr++ = *((uint16*)0x0032);//DSRPAG
-        *TaskList[CurrentTaskId].StackPtr++ = *((uint16*)0x0034);//DSWPAG
-        *TaskList[CurrentTaskId].StackPtr++ = 0x00;//RCOUNT
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W0
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W1
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W2
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W3
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W4
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W5
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W6
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W7
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W8
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W9
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W10
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W11
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W12
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W13
+        *(TaskList[CurrentTaskId].StackPtr++) = (uint16)TaskList[CurrentTaskId].StackStartAddr;//W14
+        *(TaskList[CurrentTaskId].StackPtr++) = *((uint16*)0x0032);//DSRPAG
+        *(TaskList[CurrentTaskId].StackPtr++) = *((uint16*)0x0034);//DSWPAG
+        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//RCOUNT
 
         TaskList[CurrentTaskId].State = Task_Wait;
     }
-    
-    *TaskList[CurrentTaskId].StackPtr++ = (uint16)((uint32)TaskList[CurrentTaskId].Runnable) & 0xFFFF;//PCL
-    *TaskList[CurrentTaskId].StackPtr++ = (uint16)((uint32)TaskList[CurrentTaskId].Runnable) >> 16;//STATUS + PCH
+    wrapper.stack = (TaskList[CurrentTaskId].StackPtr++); //wrapping runnable address
+    *wrapper.func = TaskList[CurrentTaskId].Runnable; //to the pcl section, in xc16 function pointers are always 16 bit wide
+    *(TaskList[CurrentTaskId].StackPtr++) = 0;//STATUS + PCH
 
     TaskList[CurrentTaskId].Quantum = OS_QUANTUM;
     TaskList[CurrentTaskId].State = Task_Running;
@@ -186,7 +194,7 @@ void __attribute__((interrupt(auto_psv))) _T5Interrupt(void)
     Os_Tick++;
     
     /* Context changing */
-    TaskList[CurrentTaskId].StackPtr = CORE_GET_STACKPTR();
+    TaskList[CurrentTaskId].StackPtr = (uint16*)CORE_GET_STACKPTR();
     Os_Schedule_RoundRobin();
     CORE_SET_STACKPTR_LIMIT(TaskList[CurrentTaskId].StackEndAddr);
     CORE_SET_STACKPTR(TaskList[CurrentTaskId].StackPtr);
