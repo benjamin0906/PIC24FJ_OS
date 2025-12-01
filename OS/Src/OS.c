@@ -12,20 +12,51 @@ typedef union uStackToRunnable
     uint16 *stack;
 } dtStackToRunnable;
 
+uint16 Background_Stack[32];
 uint8 CurrentTaskId;
 uint16 Os_Tick;
 volatile dtOS_ErrorType Os_Error;
+dtTaskInfo Background_Task_Descriptor;
+dtTaskInfo *CurrentDescriptor;
 
 void OS_Init(void);
-void Os_Schedule_RoundRobin(void);
+dtTaskInfo* Os_Schedule_RoundRobin(void);
 uint16 OS_GetTicks(void);
 void OS_Delay(uint16 Delay);
 void OS_Error(dtOS_ErrorType Error);
+void Background_Task(void);
 
 void OS_Init(void)
 {
     dtTIM_A_Cfg TIM1Cfg = {.CmpValue = 4000, .Instance =1, .Prescaler = 0, .TOn = 1,.IntHandler = 0};
     dtStackToRunnable wrapper;
+    dtTaskInfo tTask = TASK(Background_Task, Background_Stack);
+    Background_Task_Descriptor = tTask;
+    
+    /* This part of the stack will be restored during returning from the PendSV exception by HW */
+    wrapper.stack = (Background_Task_Descriptor.StackPtr++); //wrapping runnable address
+    *wrapper.func = Background_Task_Descriptor.Runnable; //to the pcl section, in xc16 function pointers are always 16 bit wide
+    *(Background_Task_Descriptor.StackPtr++) = 0;//STATUS + PCH
+
+    /* This part of the stack will be restured during the PendSV by SW */
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W0
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W1
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W2
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W3
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W4
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W5
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W6
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W7
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W8
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W9
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W10
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W11
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W12
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W13
+    *(Background_Task_Descriptor.StackPtr++) = (uint16)Background_Task_Descriptor.StackStartAddr;//W14
+    *(Background_Task_Descriptor.StackPtr++) = *((uint16*)0x0032);//DSRPAG
+    *(Background_Task_Descriptor.StackPtr++) = *((uint16*)0x0034);//DSWPAG
+    *(Background_Task_Descriptor.StackPtr++) = 0x00;//RCOUNT
     
     for(CurrentTaskId = 0; CurrentTaskId < TASK_NUMBER-1; CurrentTaskId++)
     {
@@ -62,6 +93,8 @@ void OS_Init(void)
 
     TaskList[CurrentTaskId].Quantum = OS_QUANTUM;
     TaskList[CurrentTaskId].State = Task_Running;
+    
+    CurrentDescriptor = &TaskList[CurrentTaskId];
     
     /* ---------- Setting up context switching TIMER ---------- */
     /* TIM IRQ enabling */
@@ -103,49 +136,59 @@ uint16 OS_GetTicks(void)
  * */
 void OS_Delay(uint16 Delay)
 {
-    uint16 StartTick = Os_Tick;
-    while((Os_Tick - StartTick) < Delay);
+    /*uint16 StartTick = Os_Tick;
+    while((Os_Tick - StartTick) < Delay);*/
+    volatile uint16 remaining = 0;
+    CurrentDescriptor->Skip = Delay;
+    do
+    {
+        remaining = CurrentDescriptor->Skip;
+    }
+    while(remaining != 0);
 }
 
-
-
-void Os_Schedule_RoundRobin(void)
+void Background_Task(void)
 {
-    static uint8 TaskIndex;
-
-    /* Moving the currently running task to WAIT state */
-    TaskList[CurrentTaskId].State = Task_Wait;
-
-    /* Looking for the next task to switch to until the end of the task list */
-    while((TaskIndex < TASK_NUMBER) && (TaskList[TaskIndex].State != Task_Wait))
+    while(1)
     {
-        TaskIndex++;
+        asm("PWRSAV #1");
     }
+}
 
-    /* Looking for the next task to switch to from the beginning of the task list
-     * if the indexing arrived to the end of the task list */
-    if(TaskIndex >= TASK_NUMBER)
+dtTaskInfo* Os_Schedule_RoundRobin(void)
+{
+    uint8 task_counter = 0;
+    dtTaskInfo *ret = 0;
+    
+    if(TaskList[CurrentTaskId].Skip != 0)
     {
-        TaskIndex = 0;
-        while((TaskIndex < TASK_NUMBER) && (TaskList[TaskIndex].State != Task_Wait))
+        TaskList[CurrentTaskId].Skip--;
+    }
+    CurrentTaskId++;
+    if(CurrentTaskId >= TASK_NUMBER)
+    {
+        CurrentTaskId = 0;
+    }
+    
+    while((task_counter < TASK_NUMBER) && (TaskList[CurrentTaskId].Skip != 0))
+    {
+        TaskList[CurrentTaskId].Skip--;
+        CurrentTaskId++;
+        task_counter++;
+        if(CurrentTaskId >= TASK_NUMBER)
         {
-            TaskIndex++;
+            CurrentTaskId = 0;
         }
     }
-
-    /* Changing the current task ID */
-    CurrentTaskId = TaskIndex;
-
-    /* Incrementing the index used by the search so that in the next turn
-     * the first task under examination will be the next task and not the
-     * old one */
-    TaskIndex++;
-
-    /* Set the quantum of the current task to the initial value */
-    TaskList[CurrentTaskId].Quantum = OS_QUANTUM;
-
-    /* Setting the current task to RUN state */
-    TaskList[CurrentTaskId].State = Task_Running;
+    if(task_counter >= TASK_NUMBER)
+    {
+        ret = &Background_Task_Descriptor;
+    }
+    else
+    {
+        ret = &TaskList[CurrentTaskId];
+    }
+    return ret;
 }
 
 void OS_Error(dtOS_ErrorType Error)
@@ -194,10 +237,10 @@ void __attribute__((interrupt(auto_psv))) _T5Interrupt(void)
     Os_Tick++;
     
     /* Context changing */
-    TaskList[CurrentTaskId].StackPtr = (uint16*)CORE_GET_STACKPTR();
-    Os_Schedule_RoundRobin();
-    CORE_SET_STACKPTR_LIMIT(TaskList[CurrentTaskId].StackEndAddr);
-    CORE_SET_STACKPTR(TaskList[CurrentTaskId].StackPtr);
+    CurrentDescriptor->StackPtr = (uint16*)CORE_GET_STACKPTR();
+    CurrentDescriptor = Os_Schedule_RoundRobin();
+    CORE_SET_STACKPTR_LIMIT(CurrentDescriptor->StackEndAddr);
+    CORE_SET_STACKPTR(CurrentDescriptor->StackPtr);
     
     /* Restoring CPU state from the stack */
     asm("POP RCOUNT");

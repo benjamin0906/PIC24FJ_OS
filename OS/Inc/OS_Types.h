@@ -40,11 +40,12 @@ typedef struct
     dtTaskState State;
 #if OS_SCHEDULE_TYPE == OS_SCHEDULE_ROUND_ROBIN
     uint8 Quantum;
+    uint16 Skip;
 #endif
 } dtTaskInfo;
 
 #if OS_SCHEDULE_TYPE == OS_SCHEDULE_ROUND_ROBIN
-#define TASK(TaskName, Stack) {.StackPtr = Stack, .StackStartAddr = Stack, .Runnable = &TaskName,  .StackEndAddr = Stack + sizeof(Stack)/sizeof(Stack[0]), .State = Task_Stopped, .Quantum = 0}
+#define TASK(TaskName, Stack) {.StackPtr = Stack, .StackStartAddr = Stack, .Runnable = &TaskName,  .StackEndAddr = Stack + sizeof(Stack)/sizeof(Stack[0]), .State = Task_Stopped, .Quantum = 0, .Skip = 0}
 #else
 #define TASK(TaskName, Period, Prio, Stack) {.StackPtr = Stack+sizeof(Stack)/sizeof(Stack[0]), .StackBasePtr = Stack, .Runnable = &TaskName,  .StackSize = sizeof(Stack)/sizeof(Stack[0]), .Priority = Prio, .RemainingTicks = 0}
 #endif
