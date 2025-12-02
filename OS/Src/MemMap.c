@@ -6,3 +6,4 @@ dtTIM         * const TIMs  = (dtTIM*)          0x024C;
 dtIC          * const IC    = (dtIC*)           0x0080;
 dtSC          * const SC    = (dtSC*)           0x0108;
 dtI2C         * const I2C   = (dtI2C*)          0x02DA;
+dtPMD         * const PMD   = (dtPMD*)          0x0170;

@@ -19,6 +19,7 @@ extern "C" {
 #include "IC_MemMap.h"
 #include "SC_MemMap.h"
 #include "I2C_MemMap.h"
+#include "PMD_MemMap.h"
     
 extern dtCORE       * const Core;
 extern dtGPIO_Ports * const Ports;
@@ -26,6 +27,7 @@ extern dtTIM        * const TIMs;
 extern dtIC         * const IC;
 extern dtSC         * const SC;
 extern dtI2C        * const I2C;
+extern dtPMD        * const PMD;
 
 #ifdef	__cplusplus
 }
