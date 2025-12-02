@@ -59,7 +59,7 @@ void I2C_Init(dtI2C_Config Config)
     
     temp.B.SMEN = 0;
     temp.B.GCEN = 0;
-    temp.B.I2CSIDL = 0;
+    temp.B.I2CSIDL = 1;
     
     Instance->BRG.B.I2C1BRG = Config.BaudValue;
     temp.B.I2CEN = 1;
