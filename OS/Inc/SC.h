@@ -24,9 +24,11 @@ extern "C" {
         SC_Freq_Peri,
         SC_Freq_Cpu,
         SC_Freq_Tim,
+        SC_Freq_Lpcr
     } dtSCFreq;
 
-extern uint16 SC_GetFreq(dtSCFreq Freq);
+extern uint32 SC_GetFreq(dtSCFreq Freq);
+extern void SC_SetRetentionMode(uint8 state);
 
 #ifdef	__cplusplus
 }

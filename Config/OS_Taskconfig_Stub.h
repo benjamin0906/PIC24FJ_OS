@@ -18,6 +18,7 @@ extern void Task(void);
 extern void Task2(void);
 
 #define TICK_PERIOD_US  1000
+#define TICK_FREQUENCY  1000
 
 /* Task parameter definitions */
 #define TASK_NUMBER 4

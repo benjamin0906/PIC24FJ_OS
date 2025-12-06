@@ -22,6 +22,14 @@ extern "C" {
         uint16 Instance     :1;
         uint16 Prescaler    :2;
         uint16 TOn          :1;
+        
+        /* Aggregated value for selecting clock:
+         * 0: Internal Fosc/2
+         * 1: SOSC
+         * 2: T1CK
+         * 3: LPRC
+         * 4: TMRCK */
+        uint16 ClkSel       :3;
     } dtTIM_A_Cfg;
     
     extern void TIM_A_Init(dtTIM_A_Cfg *Config);

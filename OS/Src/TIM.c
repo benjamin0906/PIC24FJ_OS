@@ -16,6 +16,12 @@ void TIM_A_Init(dtTIM_A_Cfg *Config)
     tempCfg.CON.B.TCKPS = Config->Prescaler;
     tempCfg.CON.B.TON = Config->TOn;
     
+    if(Config->ClkSel != 0)
+    {
+        tempCfg.CON.B.TCS = 1;
+        tempCfg.CON.B.TECS = Config->ClkSel - 1;
+    }
+    
     if(Config->IntHandler != 0)
     {
         IntHandlers[Config->Instance-1] = Config->IntHandler;

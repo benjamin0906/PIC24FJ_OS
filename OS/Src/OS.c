@@ -56,8 +56,10 @@ void OS_Init(void)
     IC_EnableIRQ(IC_T1IF);
     
     /* Calculating period value */
-    TIM1Cfg.CmpValue = (SC_GetFreq(SC_Freq_Tim)/1000)*TICK_PERIOD_US;
+    //TIM1Cfg.CmpValue = (SC_GetFreq(SC_Freq_Tim)/1000)*TICK_PERIOD_US;
+    TIM1Cfg.CmpValue = (SC_GetFreq(SC_Freq_Lpcr)/TICK_FREQUENCY);
     TIM1Cfg.CmpValue--;
+    TIM1Cfg.ClkSel = 3;
     
     /* Configuration of TIMER */
     TIM_A_Init(&TIM1Cfg);
@@ -135,7 +137,7 @@ void Background_Task(void)
 {
     while(1)
     {
-        asm("PWRSAV #1");
+        asm("PWRSAV #0");
     }
 }
 

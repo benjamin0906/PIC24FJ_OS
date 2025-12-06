@@ -2,11 +2,11 @@
 //#include "config.h"
 #include "../Inc/SC.h"
 
-uint16 SC_GetFreq(dtSCFreq Freq);
+uint32 SC_GetFreq(dtSCFreq Freq);
 
-uint16 SC_GetFreq(dtSCFreq Freq)
+uint32 SC_GetFreq(dtSCFreq Freq)
 {
-    uint16 returnFreq = 8000;
+    uint32 returnFreq = 8000000u;
     switch(SC->OSCCON.B.COSC)
     {
         case 0x7:
@@ -24,7 +24,7 @@ uint16 SC_GetFreq(dtSCFreq Freq)
             /* Primary with PLL s clock source */
         case 0x1:
             /* FRC with postscaler and PLL as clock source */
-            returnFreq = 32000u;
+            returnFreq = 32000000u;
             break;
         case 0x0:
             /* FRC as clock source */
@@ -41,6 +41,13 @@ uint16 SC_GetFreq(dtSCFreq Freq)
         case SC_Freq_Tim:
             returnFreq >>= 1;
             break;
+        case SC_Freq_Lpcr:
+            returnFreq = 31250;
     }
     return returnFreq;
+}
+
+void SC_SetRetentionMode(uint8 state)
+{
+    SC->RCON.B.RETEN = state != 0;
 }
