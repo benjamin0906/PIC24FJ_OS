@@ -25,6 +25,7 @@ uint16 OS_GetTicks(void);
 void OS_Delay(uint16 Delay);
 void OS_Error(dtOS_ErrorType Error);
 void Background_Task(void);
+static void TaskInit(dtTaskInfo *task);
 
 void OS_Init(void)
 {
@@ -33,57 +34,11 @@ void OS_Init(void)
     dtTaskInfo tTask = TASK(Background_Task, Background_Stack);
     Background_Task_Descriptor = tTask;
     
-    /* This part of the stack will be restored during returning from the PendSV exception by HW */
-    wrapper.stack = (Background_Task_Descriptor.StackPtr++); //wrapping runnable address
-    *wrapper.func = Background_Task_Descriptor.Runnable; //to the pcl section, in xc16 function pointers are always 16 bit wide
-    *(Background_Task_Descriptor.StackPtr++) = 0;//STATUS + PCH
-
-    /* This part of the stack will be restured during the PendSV by SW */
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W0
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W1
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W2
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W3
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W4
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W5
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W6
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W7
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W8
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W9
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W10
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W11
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W12
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//W13
-    *(Background_Task_Descriptor.StackPtr++) = (uint16)Background_Task_Descriptor.StackStartAddr;//W14
-    *(Background_Task_Descriptor.StackPtr++) = *((uint16*)0x0032);//DSRPAG
-    *(Background_Task_Descriptor.StackPtr++) = *((uint16*)0x0034);//DSWPAG
-    *(Background_Task_Descriptor.StackPtr++) = 0x00;//RCOUNT
+    TaskInit(&Background_Task_Descriptor);
     
     for(CurrentTaskId = 0; CurrentTaskId < TASK_NUMBER-1; CurrentTaskId++)
     {
-        /* This part of the stack will be restored during returning from the PendSV exception by HW */
-        wrapper.stack = (TaskList[CurrentTaskId].StackPtr++); //wrapping runnable address
-        *wrapper.func = TaskList[CurrentTaskId].Runnable; //to the pcl section, in xc16 function pointers are always 16 bit wide
-        *(TaskList[CurrentTaskId].StackPtr++) = 0;//STATUS + PCH
-
-        /* This part of the stack will be restured during the PendSV by SW */
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W0
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W1
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W2
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W3
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W4
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W5
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W6
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W7
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W8
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W9
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W10
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W11
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W12
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//W13
-        *(TaskList[CurrentTaskId].StackPtr++) = (uint16)TaskList[CurrentTaskId].StackStartAddr;//W14
-        *(TaskList[CurrentTaskId].StackPtr++) = *((uint16*)0x0032);//DSRPAG
-        *(TaskList[CurrentTaskId].StackPtr++) = *((uint16*)0x0034);//DSWPAG
-        *(TaskList[CurrentTaskId].StackPtr++) = 0x00;//RCOUNT
+        TaskInit(&TaskList[CurrentTaskId]);
 
         TaskList[CurrentTaskId].State = Task_Wait;
     }
@@ -103,7 +58,6 @@ void OS_Init(void)
     /* Calculating period value */
     TIM1Cfg.CmpValue = (SC_GetFreq(SC_Freq_Tim)/1000)*TICK_PERIOD_US;
     TIM1Cfg.CmpValue--;
-    //TIM1Cfg.CmpValue = 4000000/2/1000000*TICK_PERIOD_US;
     
     /* Configuration of TIMER */
     TIM_A_Init(&TIM1Cfg);
@@ -112,6 +66,36 @@ void OS_Init(void)
     CORE_SET_STACKPTR(TaskList[CurrentTaskId].StackPtr);
     CORE_SET_FRAMEPTR(TaskList[CurrentTaskId].StackStartAddr);
     asm("RETFIE");
+}
+
+static void TaskInit(dtTaskInfo *task)
+{
+    dtStackToRunnable wrapper;
+    
+    /* This part of the stack will be restored during returning from the PendSV exception by HW */
+    wrapper.stack = (task->StackPtr++); //wrapping runnable address
+    *wrapper.func = task->Runnable; //to the pcl section, in xc16 function pointers are always 16 bit wide
+    *(task->StackPtr++) = 0;//STATUS + PCH
+
+    /* This part of the stack will be restured during the PendSV by SW */
+    *(task->StackPtr++) = 0x00;//W0
+    *(task->StackPtr++) = 0x00;//W1
+    *(task->StackPtr++) = 0x00;//W2
+    *(task->StackPtr++) = 0x00;//W3
+    *(task->StackPtr++) = 0x00;//W4
+    *(task->StackPtr++) = 0x00;//W5
+    *(task->StackPtr++) = 0x00;//W6
+    *(task->StackPtr++) = 0x00;//W7
+    *(task->StackPtr++) = 0x00;//W8
+    *(task->StackPtr++) = 0x00;//W9
+    *(task->StackPtr++) = 0x00;//W10
+    *(task->StackPtr++) = 0x00;//W11
+    *(task->StackPtr++) = 0x00;//W12
+    *(task->StackPtr++) = 0x00;//W13
+    *(task->StackPtr++) = (uint16)task->StackStartAddr;//W14
+    *(task->StackPtr++) = *((uint16*)0x0032);//DSRPAG
+    *(task->StackPtr++) = *((uint16*)0x0034);//DSWPAG
+    *(task->StackPtr++) = 0x00;//RCOUNT
 }
 
 /**@brief Getting the ticks of the system
